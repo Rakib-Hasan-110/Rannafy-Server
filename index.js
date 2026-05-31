@@ -48,6 +48,8 @@ const client = new MongoClient(uri, {
 });
 async function run() {
   try {
+    // Connect the client to the server	(optional starting in v4.7)
+    // await client.connect();
     const database = client.db("RannaFy");
     const usersCollection = database.collection("users");
     const mealsCollection = database.collection("meals");
@@ -257,7 +259,9 @@ async function run() {
         // accept
         if (action === "accept") {
           const userQuery = { email: request.userEmail };
+          // const user = await usersCollection.findOne(userQuery);
 
+          // console.log(user);
           if (request.requestType === "chef") {
             const chefId = await getNextChefId();
 
@@ -635,4 +639,79 @@ async function run() {
       }
     });
 
-    
+    // payment related apis
+    app.get("/payments", async (req, res) => {
+      const email = req.query.email;
+      const query = {};
+      const cursor = paymentCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.patch("/payment-success", async (req, res) => {
+      try {
+        const sessionId = req.query.session_id;
+        if (!sessionId) {
+          return res.status(400).send({ error: "session_id missing" });
+        }
+
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+        if (session.payment_status !== "paid") {
+          return res.send({ success: false });
+        }
+
+        const transactionId = session.payment_intent;
+
+        //  double payment check
+        const exist = await paymentCollection.findOne({ transactionId });
+        if (exist) {
+          return res.send({
+            success: true,
+            payment: exist,
+            message: "already processed",
+          });
+        }
+
+        //  order status
+        const orderId = session.metadata.orderId;
+        await ordersCollection.updateOne(
+          { _id: new ObjectId(orderId) },
+          { $set: { paymentStatus: "paid" } },
+        );
+
+        //  payment
+        const payment = {
+          amount: session.amount_total / 100,
+          currency: session.currency,
+          customerEmail: session.customer_email,
+          orderId,
+          mealName: session.metadata.mealName,
+          transactionId,
+          paymentStatus: session.payment_status,
+          paidAt: new Date(),
+        };
+
+        const result = await paymentCollection.insertOne(payment);
+
+        return res.send({
+          success: true,
+          payment: {
+            _id: result.insertedId,
+            ...payment,
+          },
+        });
+      } catch (err) {
+        console.error("payment-success error:", err);
+        res.status(500).send({ error: "payment failed" });
+      }
+    });
+
+    console.log("✅ Successfully connected to MongoDB!");
+  } finally {
+
+  }
+}
+run().catch(console.dir);
+
+
