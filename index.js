@@ -48,8 +48,6 @@ const client = new MongoClient(uri, {
 });
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
     const database = client.db("RannaFy");
     const usersCollection = database.collection("users");
     const mealsCollection = database.collection("meals");
@@ -259,9 +257,6 @@ async function run() {
         // accept
         if (action === "accept") {
           const userQuery = { email: request.userEmail };
-          // const user = await usersCollection.findOne(userQuery);
-
-          // console.log(user);
           if (request.requestType === "chef") {
             const chefId = await getNextChefId();
 
@@ -625,7 +620,7 @@ async function run() {
           customer_email: paymentInfo.userEmail,
           mode: "payment",
           metadata: {
-            orderId: paymentInfo.orderId, 
+            orderId: paymentInfo.orderId,
             mealName: paymentInfo.mealName,
           },
           success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
@@ -643,6 +638,13 @@ async function run() {
     app.get("/payments", async (req, res) => {
       const email = req.query.email;
       const query = {};
+      // if (email) {
+      //   query.customerEmail = email;
+      // check email address
+      // if (email !== req.decoded_email) {
+      //   return res.status(403).send({ message: "forbidden access" });
+      // }
+      // }
       const cursor = paymentCollection.find(query);
       const result = await cursor.toArray();
       res.send(result);
@@ -707,9 +709,10 @@ async function run() {
       }
     });
 
+    // Send a ping to confirm a successful connection
+    // await client.db("admin").command({ ping: 1 });
     console.log("✅ Successfully connected to MongoDB!");
   } finally {
-
   }
 }
 run().catch(console.dir);
