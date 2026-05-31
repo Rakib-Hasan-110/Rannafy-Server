@@ -15,3 +15,15 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`Server running : ${port}`);
 });
+
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+
+const uri = `mongodb+srv://${process.env.DB_NAME}:${process.env.DB_PASS}@rannafy.u3mcpxw.mongodb.net/?appName=Rannafy`;
+
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  },
+});
