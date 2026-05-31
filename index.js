@@ -52,3 +52,26 @@ const verifyFirebaseToken = async (req, res, next) => {
   }
 };
 
+const verifyAdmin = async (req, res, next) => {
+  const user = await usersCollection.findOne({
+    email: req.decoded_email,
+  });
+
+  if (!user || user.role !== "admin") {
+    return res.status(403).send({ message: "forbidden access" });
+  }
+
+  next();
+};
+
+const verifyChef = async (req, res, next) => {
+  const user = await usersCollection.findOne({
+    email: req.decoded_email,
+  });
+
+  if (!user || user.role !== "chef") {
+    return res.status(403).send({ message: "forbidden access" });
+  }
+
+  next();
+};
