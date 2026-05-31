@@ -714,4 +714,12 @@ async function run() {
 }
 run().catch(console.dir);
 
+// Default route
+app.get("/", (req, res) => {
+  res.send("Hello spicy RannaFy! 🚀");
+});
 
+// Start server
+app.listen(port, () => {
+  console.log(`Server running : ${port}`);
+});
