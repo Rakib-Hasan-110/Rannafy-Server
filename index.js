@@ -27,3 +27,10 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+const admin = require("firebase-admin");
+const serviceAccount = require("./rannafy-firebase-adminsdk.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
