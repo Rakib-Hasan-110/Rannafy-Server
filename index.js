@@ -34,3 +34,21 @@ const serviceAccount = require("./rannafy-firebase-adminsdk.json");
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
+
+const verifyFirebaseToken = async (req, res, next) => {
+  const token = req.headers.authorization;
+
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorised access" });
+  }
+
+  try {
+    const idToken = token.split(" ")[1];
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    req.decoded_email = decoded.email;
+    next();
+  } catch {
+    return res.status(401).send({ message: "Unauthorised access" });
+  }
+};
+
