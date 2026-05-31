@@ -332,3 +332,271 @@ async function run() {
         res.status(500).send({ message: "Server error" });
       }
     });
+
+    // latest meals for home page
+    app.get("/latest-meals", async (req, res) => {
+      const cursor = mealsCollection.find().limit(8).sort({ createdAt: -1 });
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+    app.get("/meals/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await mealsCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.post("/meals", async (req, res) => {
+      try {
+        const meal = req.body;
+
+        meal.createdAt = new Date();
+
+        const result = await mealsCollection.insertOne(meal);
+
+        res.status(201).send({
+          success: true,
+          message: "Meal added successfully",
+          insertedId: result.insertedId,
+        });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to create meal" });
+      }
+    });
+
+    app.delete(
+      "/meals/:id",
+      verifyFirebaseToken,
+      verifyChef,
+      async (req, res) => {
+        const { id } = req.params;
+        const query = { _id: new ObjectId(id) };
+        const result = await mealsCollection.deleteOne(query);
+        res.send(result);
+      },
+    );
+    app.patch(
+      "/meals/:id",
+      verifyFirebaseToken,
+      verifyChef,
+      async (req, res) => {
+        const id = req.params.id;
+        const updatedData = req.body;
+        const query = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: updatedData,
+        };
+        const result = await mealsCollection.updateOne(query, updateDoc);
+        res.send(result);
+      },
+    );
+
+    // user reviews for single meals
+    // get reviews apis
+    app.get("/meals-reviews/:mealId", async (req, res) => {
+      const mealId = req.params.mealId;
+      const query = { mealId: new ObjectId(mealId) };
+      const cursor = mealsReviewsCollection.find(query).sort({ createdAt: -1 });
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+    app.get("/meals-reviews", verifyFirebaseToken, async (req, res) => {
+      const { email } = req.query;
+      const query = {};
+      if (email) {
+        query.userEmail = email;
+      }
+      const result = await mealsReviewsCollection
+        .find(query)
+        .sort({ createdAt: -1 })
+        .toArray();
+      res.send(result);
+    });
+    app.get("/latest-reviews", async (req, res) => {
+      const cursor = mealsReviewsCollection
+        .find()
+        .limit(8)
+        .sort({ createdAt: -1 });
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+    app.post("/meals-reviews", async (req, res) => {
+      const { mealId, mealName, userName, userEmail, UserPhoto, text, rating } =
+        req.body;
+      if (!mealId || !text || !rating) {
+        return res.status(400).send({ message: "Invalid review data" });
+      }
+      // const formattedDate = dayjs().format("MMM D, YYYY h:mm A");
+      const UserReviews = {
+        mealId: new ObjectId(mealId),
+        mealName,
+        userName,
+        userEmail,
+        UserPhoto,
+        text,
+        rating,
+        createdAt: new Date(),
+      };
+      const result = await mealsReviewsCollection.insertOne(UserReviews);
+      res.send(result);
+    });
+    app.delete("/meals-reviews/:id", verifyFirebaseToken, async (req, res) => {
+      const { id } = req.params;
+      const query = { _id: new ObjectId(id) };
+      const result = await mealsReviewsCollection.deleteOne(query);
+      res.send(result);
+    });
+    app.patch("/meals-reviews/:id", verifyFirebaseToken, async (req, res) => {
+      const id = req.params.id;
+      const updatedData = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updatedData,
+      };
+      const result = await mealsReviewsCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+    app.get("/favorites", verifyFirebaseToken, async (req, res) => {
+      const { email } = req.query;
+      const query = {};
+      if (email) {
+        query.userEmail = email;
+      }
+      const cursor = favoritesCollection.find(query).sort({ createdAt: -1 });
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+    app.post("/favorites", async (req, res) => {
+      const favorite = req.body;
+      favorite.createdAt = new Date();
+      favorite.mealId = new ObjectId(favorite.mealId);
+      if (!favorite.mealId) {
+        return res.status(400).send({ message: "Invalid favorite data" });
+      }
+
+      //  check already in favorites
+      const favoriteExists = await favoritesCollection.findOne({
+        mealId: favorite.mealId,
+        userEmail: favorite.userEmail,
+      });
+
+      if (favoriteExists) {
+        return res.send({ message: "Already in favorites" });
+      }
+
+      const result = await favoritesCollection.insertOne(favorite);
+      res.send({ message: "Added successfully", result });
+    });
+    app.delete("/favorites/:id", verifyFirebaseToken, async (req, res) => {
+      const { id } = req.params;
+      const query = { _id: new ObjectId(id) };
+      const result = await favoritesCollection.deleteOne(query);
+      res.send(result);
+    });
+    // order data from UI
+    app.get("/orders", verifyFirebaseToken, async (req, res) => {
+      const { email, mealId, chefId } = req.query;
+      const query = {};
+      if (email) {
+        query.userEmail = email;
+      }
+      if (mealId) {
+        query.mealId = new ObjectId(mealId);
+      }
+
+      if (chefId) {
+        query.chefId = chefId;
+      }
+
+      const result = await ordersCollection
+        .find(query)
+        .sort({ orderTime: -1 })
+        .toArray();
+      res.send(result);
+    });
+    app.get("/orders/:id", verifyFirebaseToken, async (req, res) => {
+      const { id } = req.params;
+      const query = { _id: new ObjectId(id) };
+      const result = await ordersCollection.find(query).toArray();
+      res.send(result);
+    });
+    // order data post data
+    app.post("/orders", async (req, res) => {
+      try {
+        const orders = req.body;
+        const user = await usersCollection.findOne({ email: orders.email });
+
+        if (!user) {
+          return res.status(404).send({ message: "User not found" });
+        }
+
+        if (user.userStatus === "fraud") {
+          return res.status(403).send({
+            message: "You are marked as a fraud user. You cannot place orders.",
+          });
+        }
+        //  normal user order
+        orders.mealId = new ObjectId(orders.mealId);
+        orders.orderTime = new Date();
+        orders.orderStatus = "pending";
+        orders.paymentStatus = "pending";
+
+        const result = await ordersCollection.insertOne(orders);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Something went wrong" });
+      }
+    });
+
+    app.patch(
+      "/orders/:id",
+      verifyFirebaseToken,
+      verifyChef,
+      async (req, res) => {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const order = await ordersCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        if (!order) {
+          return res.send({ message: "Order not found" });
+        }
+
+        let updateDoc = {};
+
+        // accepted
+        if (status === "accepted") {
+          updateDoc = {
+            orderStatus: "accepted",
+            paymentStatus: "payment",
+          };
+        }
+
+        // cancelled
+        if (status === "cancelled") {
+          updateDoc = {
+            orderStatus: "cancelled",
+            paymentStatus: "cancelled",
+          };
+        }
+
+        //  delivered
+        if (status === "delivered") {
+          updateDoc = {
+            orderStatus: "delivered",
+          };
+        }
+
+        await ordersCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updateDoc },
+        );
+
+        res.send({ success: true });
+      },
+    );
+
+    
